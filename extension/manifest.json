@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Image Downloader to Network Drive",
-  "version": "1.11",
-  "description": "Right-click on images to download them to your network drive, or collect a whole Tumblr tag, YouPic portfolio or page",
+  "version": "1.13",
+  "description": "Right-click on images to download them to your network drive (Instagram photos too, Pinterest at full size), or collect a whole Tumblr tag, YouPic portfolio or page",
   "permissions": [
     "contextMenus",
     "storage",
@@ -35,10 +35,14 @@
     {
       "matches": [
         "https://www.tumblr.com/*",
-        "https://*.tumblr.com/*"
+        "https://*.tumblr.com/*",
+        "https://www.instagram.com/*",
+        "https://instagram.com/*",
+        "https://*.pinterest.com/*",
+        "https://pinterest.com/*"
       ],
       "js": [
-        "tumblr-context.js"
+        "page-context.js"
       ],
       "run_at": "document_start"
     }

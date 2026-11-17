@@ -8,10 +8,20 @@ chrome.runtime.onInstalled.addListener(() => {
       title: "Download to Network Drive",
       contexts: ["image"]
     });
+    // Instagram lays a clear layer over each photo, so Chrome sees no image under the mouse and
+    // the item above never shows there: the same item for anywhere on an Instagram page, which
+    // finds the photo under the mouse itself
+    chrome.contextMenus.create({
+      id: "download-instagram",
+      title: "Download to Network Drive",
+      contexts: ["page", "link"],
+      documentUrlPatterns: ["https://www.instagram.com/*", "https://instagram.com/*"]
+    });
   });
 });
 
 const TUMBLR_PAGE = /^https:\/\/(?:[A-Za-z0-9-]+\.)?tumblr\.com\//;
+const INSTAGRAM_PAGE = /^https:\/\/(?:www\.)?instagram\.com\//;
 
 // A Tumblr post link: www.tumblr.com/<blog>/<id>, www.tumblr.com/blog/view/<blog>/<id> or
 // <blog>.tumblr.com/post/<id>
@@ -19,19 +29,58 @@ const POST_LINK = /^https:\/\/(?:www\.tumblr\.com\/(?:blog\/view\/)?[A-Za-z0-9-]
 
 // Handle context menu click
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId !== "download-image") return;
+  if (info.menuItemId !== "download-image" && info.menuItemId !== "download-instagram") return;
   chrome.storage.local.get(["serverUrl", "apiKey"], async (config) => {
     if (!config.serverUrl || !config.apiKey) {
       showBadge("!", "#f44336");
+      return;
+    }
+    if (INSTAGRAM_PAGE.test(tab.url || "")) {
+      // Instagram: the photo under the mouse at its largest size, saved from its post's link
+      let found = null;
+      try {
+        const [{ result }] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id, frameIds: [info.frameId || 0] },
+          func: findInstagramPhoto,
+          args: [info.srcUrl || ""]
+        });
+        found = result;
+      } catch (err) {
+        console.warn("Couldn't look for the photo on the page:", err.message);
+      }
+      if (!found) {
+        showBadge("✗", "#f44336", 3000);   // no photo there (a video, or not on a photo)
+        return;
+      }
+      const bytes = await imageFromPage(tab.id, info.frameId || 0, found.src);
+      downloadImage(found.src, found.post || tab.url, config.serverUrl, config.apiKey, undefined, bytes);
       return;
     }
     if (!TUMBLR_PAGE.test(tab.url || "")) {
       // Elsewhere: Chrome already has the image, so it sends the bytes - some sites (e.g.
       // behind Cloudflare's bot check) won't let the server fetch it. If Chrome can't read it,
       // the server tries the address itself.
-      const src = largestVersion(info.srcUrl);
-      const bytes = await imageFromPage(tab.id, info.frameId, src);
-      downloadImage(src, tab.url, config.serverUrl, config.apiKey, undefined, bytes);
+      // The biggest size the site serves first, then smaller ones, then the image as shown
+      let src = info.srcUrl, bytes = null;
+      for (const url of largerVersions(info.srcUrl)) {
+        bytes = await imageFromPage(tab.id, info.frameId, url);
+        if (bytes) { src = url; break; }
+      }
+      if (!bytes) src = largerVersions(info.srcUrl)[0];   // the server tries the biggest itself
+      let source = tab.url;
+      if (PINTEREST_PAGE.test(tab.url || "")) {           // Pinterest: the pin's own page, not the search or board
+        try {
+          const [{ result }] = await chrome.scripting.executeScript({
+            target: { tabId: tab.id, frameIds: [info.frameId] },
+            func: findPinLink,
+            args: [info.srcUrl]
+          });
+          source = result || source;
+        } catch (err) {
+          console.warn("Couldn't look for the pin on the page:", err.message);
+        }
+      }
+      downloadImage(src, source, config.serverUrl, config.apiKey, undefined, bytes);
       return;
     }
     // Tumblr: the post links around the clicked image (plus the page itself on a post's own
@@ -53,14 +102,32 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   });
 });
 
+// The addresses to try for an image, biggest first, ending with the image as shown.
 // YouPic serves every size of a photo from one address ending in the size (8 hex digits, the
 // long side / 4); the grid shows 768 px, the largest it serves is 1440 px, so ask for more.
-function largestVersion(url) {
-  return String(url).replace(/^(https:\/\/(?:www\.)?youpic\.com\/i\/[0-9a-f]{40}[0-9a-f]*)[0-9a-f]{8}$/i, (_, stem) => `${stem}00000258`);
+// Pinterest keeps each size in a folder (i.pinimg.com/236x/, 474x/, 736x/, originals/): the
+// original as uploaded (checked 2026-11-15: up to 2500 px, often far past 736 px), else 736x.
+function largerVersions(url) {
+  url = String(url);
+  const youpic = url.replace(/^(https:\/\/(?:www\.)?youpic\.com\/i\/[0-9a-f]{40}[0-9a-f]*)[0-9a-f]{8}$/i, (_, stem) => `${stem}00000258`);
+  const pin = url.match(/^(https:\/\/i\.pinimg\.com\/)(?:\d+x\d*|originals)(\/.+)$/i);
+  const list = pin ? [`${pin[1]}originals${pin[2]}`, `${pin[1]}736x${pin[2]}`] : [youpic];
+  return [...new Set([...list, url])];
+}
+
+const PINTEREST_PAGE = /^https:\/\/(?:[a-z]{2,3}\.)?pinterest\.(?:com|[a-z]{2}|co\.[a-z]{2}|com\.[a-z]{2})\//i;
+
+// Runs in the Pinterest page: the link to the pin the right-clicked image belongs to (a grid
+// tile links to it; on a pin's own page, the page itself), else null
+function findPinLink(srcUrl) {
+  const pinOf = (href) => { const m = href && new URL(href, location.href).pathname.match(/^\/pin\/(\d+)/); return m ? `${location.origin}/pin/${m[1]}/` : null; };
+  let el = window.__inspoContextTarget;
+  if (!(el instanceof Element) || !el.isConnected) el = [...document.images].find((i) => i.currentSrc === srcUrl || i.src === srcUrl) || null;
+  return pinOf(el && el.closest("a[href]")?.href) || pinOf(location.href);
 }
 
 // Runs in the Tumblr page: the post links in the post that holds the right-clicked image.
-// tumblr-context.js recorded which element was right-clicked; failing that, the image is
+// page-context.js recorded which element was right-clicked; failing that, the image is
 // found by its address.
 function findPostLinks(srcUrl) {
   const postLink = /^https:\/\/(?:www\.tumblr\.com\/(?:blog\/view\/)?[A-Za-z0-9-]+\/\d{6,}|[A-Za-z0-9-]+\.tumblr\.com\/post\/\d{6,})/;
@@ -80,6 +147,47 @@ function findPostLinks(srcUrl) {
     links = linksIn(node);
   }
   return [...new Set(links)].slice(0, 10);
+}
+
+// Runs in the Instagram page: the photo that was right-clicked, as { src, post } (src: its
+// largest size; post: the post's link, or null), else null. page-context.js noted where the
+// right-click was; the photo is the image under that point, below Instagram's clear layer.
+function findInstagramPhoto(srcUrl) {
+  const point = window.__inspoContextPoint;
+  let img = null;
+  if (point) {
+    const [x, y] = point;
+    let first = document.elementsFromPoint(x, y).find((e) => e instanceof HTMLImageElement || e instanceof HTMLVideoElement);
+    if (first instanceof HTMLVideoElement) return null;                // a video: nothing to save
+    // an image the mouse can't hit (pointer-events: none) isn't in that list: any image under the point
+    const area = (i) => { const r = i.getBoundingClientRect(); return r.width * r.height; };
+    first ||= [...document.images].filter((i) => { const r = i.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; })
+      .sort((a, b) => area(b) - area(a))[0];
+    if (!first) return null;
+    const r = first.getBoundingClientRect();
+    if (Math.min(r.width, r.height) < 100) return null;               // an avatar or an icon
+    img = first;
+  } else if (srcUrl) {
+    img = [...document.images].find((i) => i.currentSrc === srcUrl || i.src === srcUrl) || null;
+  }
+  if (!img) return null;
+  // the biggest version the <img> offers (srcset, "address 1080w, …"), else what it shows
+  let src = img.currentSrc || img.src, best = img.naturalWidth || 0;
+  for (const [, u, w] of (img.getAttribute("srcset") || "").matchAll(/(?:^|,)\s*(\S+)\s+(\d+)w\b/g)) {
+    if (+w > best) {
+      try { src = new URL(u, location.href).href; best = +w; } catch {}
+    }
+  }
+  if (!/^https?:/.test(src)) return null;
+  // the post's own link: in its <article> (the feed) or the grid tile's link, else the page (a post's page)
+  const postPath = /\/(p|reel)\/([A-Za-z0-9_-]+)/;
+  const linkOf = (a) => { const m = a && new URL(a.href, location.href).pathname.match(postPath); return m ? `https://www.instagram.com/${m[1]}/${m[2]}/` : null; };
+  let post = linkOf(img.closest("a[href]"));
+  const article = img.closest("article");
+  if (!post && article) post = [...article.querySelectorAll("a[href]")].map(linkOf).find(Boolean) || null;
+  if (!post) post = linkOf({ href: location.href });
+  if (post && post.includes("/reel/")) return null;                   // a reel's tile shows the video's cover
+  return { src, post };
 }
 
 // The right-clicked image's bytes as a Blob, read the way the page loads it (with its

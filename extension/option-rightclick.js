@@ -4,6 +4,7 @@
 // plain right-click is left alone, so sites with their own right-click menus keep them.
 window.addEventListener("contextmenu", (e) => {
   if (!e.altKey) return;
-  window.__inspoContextTarget = e.target;   // tumblr-context.js won't see this click
+  window.__inspoContextTarget = e.target;   // page-context.js won't see this click
+  window.__inspoContextPoint = [e.clientX, e.clientY];
   e.stopImmediatePropagation();
 }, true);
