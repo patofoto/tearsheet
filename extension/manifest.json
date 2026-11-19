@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Image Downloader to Network Drive",
-  "version": "1.13",
-  "description": "Right-click on images to download them to your network drive (Instagram photos too, Pinterest at full size), or collect a whole Tumblr tag, YouPic portfolio or page",
+  "name": "Tearsheet",
+  "version": "1.14",
+  "description": "Save photos from the web to Tearsheet: right-click a photo (Instagram and Pinterest at full size), collect a whole Tumblr tag, YouPic portfolio or page, and start a library scan",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoRSxdclejE1pnhmJ2nBPX7D0bL1q6QIuXQDexkhBxRjrjkyLP9bzf0hqMEPI/Gqlq2oyGAKpQ7zcu0tSXheCND1tsEJF4NcbT8qY1fuUhEKOZEgjl8f9IwbS9ydV/iBVy19NyP3/x+6vvzLIhJVXhQVNe0JCVU/Bm8FwLf9XC0ad/S10m87LGFYpBwZGjpLluzpp1pz5DkuosQ85CI6dlnPRL8My6fIoDUxr8u9UKc0gkcZ7mroR6gyxYYfvGpJHHzRs8OEenqBWlkR5cfTlu62XQFzfQmM1E+n5UFa3glu2LZfnxAzVbxhkvtMQXzV9v5MC//De4xs+bV8dXYkLDQIDAQAB",
   "permissions": [
     "contextMenus",
     "storage",
@@ -10,7 +11,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Collect photos"
+    "default_title": "Tearsheet: collect photos, scan the library"
   },
   "host_permissions": [
     "<all_urls>"

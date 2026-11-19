@@ -5,7 +5,7 @@ chrome.runtime.onInstalled.addListener(() => {
     // share), elsewhere just the image
     chrome.contextMenus.create({
       id: "download-image",
-      title: "Download to Network Drive",
+      title: "Save to Tearsheet",
       contexts: ["image"]
     });
     // Instagram lays a clear layer over each photo, so Chrome sees no image under the mouse and
@@ -13,12 +13,39 @@ chrome.runtime.onInstalled.addListener(() => {
     // finds the photo under the mouse itself
     chrome.contextMenus.create({
       id: "download-instagram",
-      title: "Download to Network Drive",
+      title: "Save to Tearsheet",
       contexts: ["page", "link"],
       documentUrlPatterns: ["https://www.instagram.com/*", "https://instagram.com/*"]
     });
+    // Right-click on the toolbar icon: start a library scan (was the Webhook Trigger extension)
+    chrome.contextMenus.create({
+      id: "scan-library",
+      title: "Scan library",
+      contexts: ["action"]
+    });
   });
 });
+
+// Scan library: calls the scan address set in Settings (e.g. an n8n workflow that starts Immich's
+// library scan), so newly saved photos show up. The badge shows it was asked; the scan runs on its own.
+async function scanLibrary() {
+  const { webhookUrl } = await chrome.storage.local.get(["webhookUrl"]);
+  if (!webhookUrl) {
+    showBadge("!", "#f44336", 3000);
+    chrome.runtime.openOptionsPage();
+    throw new Error("Set the library scan address in Settings first.");
+  }
+  showBadge("...", "#1a73e8");
+  try {
+    const response = await fetch(webhookUrl, { method: "GET" });
+    if (!response.ok) throw new Error(`The scan address answered HTTP ${response.status}`);
+    showBadge("✓", "#4caf50", 3000);
+  } catch (error) {
+    console.error("Library scan:", error);
+    showBadge("✗", "#f44336", 3000);
+    throw error;
+  }
+}
 
 const TUMBLR_PAGE = /^https:\/\/(?:[A-Za-z0-9-]+\.)?tumblr\.com\//;
 const INSTAGRAM_PAGE = /^https:\/\/(?:www\.)?instagram\.com\//;
@@ -29,6 +56,7 @@ const POST_LINK = /^https:\/\/(?:www\.tumblr\.com\/(?:blog\/view\/)?[A-Za-z0-9-]
 
 // Handle context menu click
 chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "scan-library") { scanLibrary().catch(() => {}); return; }
   if (info.menuItemId !== "download-image" && info.menuItemId !== "download-instagram") return;
   chrome.storage.local.get(["serverUrl", "apiKey"], async (config) => {
     if (!config.serverUrl || !config.apiKey) {
@@ -121,7 +149,7 @@ const PINTEREST_PAGE = /^https:\/\/(?:[a-z]{2,3}\.)?pinterest\.(?:com|[a-z]{2}|c
 // tile links to it; on a pin's own page, the page itself), else null
 function findPinLink(srcUrl) {
   const pinOf = (href) => { const m = href && new URL(href, location.href).pathname.match(/^\/pin\/(\d+)/); return m ? `${location.origin}/pin/${m[1]}/` : null; };
-  let el = window.__inspoContextTarget;
+  let el = window.__tearsheetContextTarget;
   if (!(el instanceof Element) || !el.isConnected) el = [...document.images].find((i) => i.currentSrc === srcUrl || i.src === srcUrl) || null;
   return pinOf(el && el.closest("a[href]")?.href) || pinOf(location.href);
 }
@@ -132,7 +160,7 @@ function findPinLink(srcUrl) {
 function findPostLinks(srcUrl) {
   const postLink = /^https:\/\/(?:www\.tumblr\.com\/(?:blog\/view\/)?[A-Za-z0-9-]+\/\d{6,}|[A-Za-z0-9-]+\.tumblr\.com\/post\/\d{6,})/;
   const key = (srcUrl.match(/media\.tumblr\.com\/([0-9a-f]{32})\//i) || [])[1];
-  let el = window.__inspoContextTarget;
+  let el = window.__tearsheetContextTarget;
   if (!(el instanceof Element) || !el.isConnected) {
     el = [...document.images].find((img) => img.currentSrc === srcUrl || img.src === srcUrl ||
       (key && (img.currentSrc || img.src || "").includes(key))) || null;
@@ -153,7 +181,7 @@ function findPostLinks(srcUrl) {
 // largest size; post: the post's link, or null), else null. page-context.js noted where the
 // right-click was; the photo is the image under that point, below Instagram's clear layer.
 function findInstagramPhoto(srcUrl) {
-  const point = window.__inspoContextPoint;
+  const point = window.__tearsheetContextPoint;
   let img = null;
   if (point) {
     const [x, y] = point;
@@ -285,14 +313,18 @@ async function downloadImage(imageUrl, pageUrl, serverUrl, apiKey, postUrls, byt
 // Tag runs: the collector (collector.js, running in a Tumblr tab) hands its list to the
 // server through here, so the server URL and API key stay in the extension's storage.
 const BATCH_ROUTES = {
-  "inspo-batch-create": (msg) => ["POST", "/batch", { tag: msg.tag, source: msg.source, album: msg.album, items: msg.items }],
-  "inspo-batch-status": (msg) => ["GET", `/batch/${encodeURIComponent(msg.id)}${msg.items ? "?items=1" : ""}`],
-  "inspo-batch-download": (msg) => ["POST", `/batch/${encodeURIComponent(msg.id)}/download`, { album: msg.album || "" }],
-  "inspo-batch-cancel": (msg) => ["POST", `/batch/${encodeURIComponent(msg.id)}/cancel`]
+  "tearsheet-batch-create": (msg) => ["POST", "/batch", { tag: msg.tag, source: msg.source, album: msg.album, items: msg.items }],
+  "tearsheet-batch-status": (msg) => ["GET", `/batch/${encodeURIComponent(msg.id)}${msg.items ? "?items=1" : ""}`],
+  "tearsheet-batch-download": (msg) => ["POST", `/batch/${encodeURIComponent(msg.id)}/download`, { album: msg.album || "" }],
+  "tearsheet-batch-cancel": (msg) => ["POST", `/batch/${encodeURIComponent(msg.id)}/cancel`]
 };
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg?.type === "inspo-batch-item-bytes") {
+  if (msg?.type === "tearsheet-scan") {
+    scanLibrary().then(() => sendResponse({ ok: true }), (error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+  if (msg?.type === "tearsheet-batch-item-bytes") {
     sendItemBytes(msg).then(
       (data) => sendResponse({ ok: true, data }),
       (error) => sendResponse({ ok: false, error: error.message })
@@ -310,7 +342,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 async function batchRequest(method, path, body) {
   const { serverUrl, apiKey } = await chrome.storage.local.get(["serverUrl", "apiKey"]);
-  if (!serverUrl || !apiKey) throw new Error("Set the server URL and API key in the extension's options first.");
+  if (!serverUrl || !apiKey) throw new Error("Set the saver address and API key in the extension's Settings first.");
   const response = await fetch(`${serverUrl}${path}`, {
     method,
     headers: { "X-API-Key": apiKey, ...(body ? { "Content-Type": "application/json" } : {}) },
@@ -331,7 +363,7 @@ async function sendItemBytes({ id, index, url, dataUrl }) {
     blob = await response.blob();
   }
   const { serverUrl, apiKey } = await chrome.storage.local.get(["serverUrl", "apiKey"]);
-  if (!serverUrl || !apiKey) throw new Error("Set the server URL and API key in the extension's options first.");
+  if (!serverUrl || !apiKey) throw new Error("Set the saver address and API key in the extension's Settings first.");
   const response = await fetch(`${serverUrl}/batch/${encodeURIComponent(id)}/items/${Number(index)}/bytes`, {
     method: "POST",
     headers: { "X-API-Key": apiKey, "Content-Type": blob.type || "application/octet-stream" },

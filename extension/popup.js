@@ -16,9 +16,22 @@ function showError(message) {
 
 $("settings").addEventListener("click", () => chrome.runtime.openOptionsPage());
 
+// Scan library: the background worker calls the scan address from Settings
+chrome.storage.local.get(["webhookUrl"], ({ webhookUrl }) => {
+  if (!webhookUrl) $("scanHint").textContent = "Set the library scan address in Settings to use this.";
+});
+$("scan").addEventListener("click", async () => {
+  $("scan").disabled = true;
+  $("scan").textContent = "Asking…";
+  const r = await chrome.runtime.sendMessage({ type: "tearsheet-scan" }).catch((e) => ({ ok: false, error: e.message }));
+  $("scan").disabled = false;
+  $("scan").textContent = r?.ok ? "✓ Scan started" : "Scan library";
+  if (!r?.ok) showError(r?.error || "The scan couldn't start.");
+});
+
 chrome.tabs.query({ active: true, currentWindow: true }, async ([tab]) => {
   const { serverUrl, apiKey } = await chrome.storage.local.get(["serverUrl", "apiKey"]);
-  if (!serverUrl || !apiKey) showError("Set the server URL and API key in Settings first.");
+  if (!serverUrl || !apiKey) showError("Set the saver address and API key in Settings first.");
 
   const startCollector = async () => {
     try {

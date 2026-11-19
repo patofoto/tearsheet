@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Inspo</title>
+  <title>Tearsheet</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -67,7 +67,19 @@
     [hidden] {
       display: none;
     }
-    h2.sub {
+    button.second {
+      background: #f1f3f4;
+      color: #333;
+    }
+    button.second:hover {
+      background: #e3e5e8;
+    }
+    .scan {
+      margin-top: 14px;
+      padding-top: 4px;
+      border-top: 1px solid #eee;
+    }
+    h2.sub { 
       margin: 16px 0 8px;
       font-size: 13px;
       color: #666;
@@ -97,6 +109,11 @@
   </div>
 
   <p class="hint error" id="error" hidden></p>
+
+  <div class="scan">
+    <button id="scan" class="second">Scan library</button>
+    <p class="hint" id="scanHint">Has Immich look for newly saved photos. Also: right-click the toolbar icon.</p>
+  </div>
 
   <div class="footer"><a id="settings">Settings</a></div>
 

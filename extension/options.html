@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Image Downloader Settings</title>
+  <title>Tearsheet Settings</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -61,15 +61,19 @@
   </style>
 </head>
 <body>
-  <h2>Image Downloader Settings</h2>
+  <h2>Tearsheet Settings</h2>
 
-  <label for="serverUrl">Server URL</label>
-  <input type="text" id="serverUrl" placeholder="http://10.0.30.20:3000" />
-  <p class="hint">The address of your backend server</p>
+  <label for="serverUrl">Saver address</label>
+  <input type="text" id="serverUrl" placeholder="https://saver.example.com" />
+  <p class="hint">Where Tearsheet's saver runs: it receives the photos and puts them in your library</p>
 
   <label for="apiKey">API Key</label>
   <input type="password" id="apiKey" placeholder="Enter your API key" />
-  <p class="hint">Must match the key set on the server</p>
+  <p class="hint">Must match the key set on the saver</p>
+
+  <label for="webhookUrl">Library scan address <span style="font-weight:400;color:#888">(optional)</span></label>
+  <input type="text" id="webhookUrl" placeholder="https://n8n.example.com/webhook/scan" />
+  <p class="hint">Opened by Scan library (toolbar panel, or right-click the toolbar icon): an address that starts Immich's library scan, such as an n8n workflow</p>
 
   <button id="save">Save Settings</button>
   <div id="status"></div>

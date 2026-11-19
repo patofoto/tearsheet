@@ -16,7 +16,7 @@
   // The popup again while a panel is open: the same page, or a run still collecting, keeps that panel; on
   // another page (Tumblr and YouPic change pages without loading one) a run that's done collecting gives way
   // to a new one (its download, if started, carries on on the server)
-  const open = window.__inspoCollector;
+  const open = window.__tearsheetCollector;
   if (open && (!open.reopen || open.reopen())) {
     if (!open.reopen) open.show();
     return;
@@ -58,7 +58,7 @@
       .secondary { background: #eee; color: #333; }
     </style>
     <div class="panel">
-      <div class="head"><b>Inspo</b><span class="tag"></span><button class="x" title="Close">×</button></div>
+      <div class="head"><b>Tearsheet</b><span class="tag"></span><button class="x" title="Close">×</button></div>
       <div class="status"></div>
       <div class="result"></div>
       <div class="actions"></div>
@@ -97,13 +97,13 @@
   // carries on without the panel.
   function close() {
     stopped = true;
-    if (batchId && !downloadStarted) server({ type: "inspo-batch-cancel", id: batchId }).catch(() => {});
+    if (batchId && !downloadStarted) server({ type: "tearsheet-batch-cancel", id: batchId }).catch(() => {});
     host.remove();
-    delete window.__inspoCollector;
+    delete window.__tearsheetCollector;
   }
   $(".x").addEventListener("click", close);
 
-  window.__inspoCollector = {
+  window.__tearsheetCollector = {
     show: () => host.isConnected || document.documentElement.appendChild(host),
     reopen() {        // true: this panel stays (shown again); false: it closed, for a new run
       if (location.href === startedOn || collecting) { this.show(); return true; }
@@ -411,7 +411,7 @@
     }
 
     setStatus(`Sending ${fmt(items.length)} photos to the server…`);
-    const created = await server({ type: "inspo-batch-create", tag: SOURCE.title, source: SOURCE.kind, album: SOURCE.album, items });
+    const created = await server({ type: "tearsheet-batch-create", tag: SOURCE.title, source: SOURCE.kind, album: SOURCE.album, items });
     batchId = created.id;
 
     let batch = created;
@@ -421,7 +421,7 @@
         ? "Waiting for the server (another run is being checked)…"
         : `Checking for duplicates… ${fmt(done)} / ${fmt(total)}`);
       await pause(POLL_MS);
-      batch = await server({ type: "inspo-batch-status", id: batchId });
+      batch = await server({ type: "tearsheet-batch-status", id: batchId });
     }
     if (stopped) return;
     if (batch.phase !== "ready") throw new Error(`The server's check ended as "${batch.phase}". ${(batch.warnings || []).join(" ")}`);
@@ -456,7 +456,7 @@
     downloadStarted = true;
     setActions([]);
     setStatus("Starting the download…");
-    let batch = await server({ type: "inspo-batch-download", id: batchId, album });
+    let batch = await server({ type: "tearsheet-batch-download", id: batchId, album });
 
     while (!stopped && ["download-queued", "downloading"].includes(batch.phase)) {
       const d = batch.download;
@@ -464,11 +464,11 @@
         ? "Waiting for the server (another run is in progress)…"
         : `Downloading… ${fmt(d.done)} / ${fmt(d.total)}${d.failed ? ` · ${fmt(d.failed)} failed` : ""}`);
       setActions([
-        { label: "Stop", onClick: () => server({ type: "inspo-batch-cancel", id: batchId }).catch(showError) },
+        { label: "Stop", onClick: () => server({ type: "tearsheet-batch-cancel", id: batchId }).catch(showError) },
         { label: "Hide", title: "The download continues on the server", onClick: close }
       ]);
       await pause(POLL_MS);
-      batch = await server({ type: "inspo-batch-status", id: batchId });
+      batch = await server({ type: "tearsheet-batch-status", id: batchId });
     }
     if (stopped) return;
     if (batch.phase === "failed") throw new Error(`The server's download failed. ${(batch.warnings || []).join(" ")}`);
@@ -530,7 +530,7 @@
 
   async function downloadHere() {
     let halt = false;
-    const full = await server({ type: "inspo-batch-status", id: batchId, items: true });
+    const full = await server({ type: "tearsheet-batch-status", id: batchId, items: true });
     const todo = full.items.map((item, index) => ({ item, index })).filter(({ item }) => item.status === "new" && item.result === "failed");
     let saved = 0;
     for (const [n, { item, index }] of todo.entries()) {
@@ -539,14 +539,14 @@
       setActions([{ label: "Stop", onClick: () => { halt = true; } }]);
       try {
         const dataUrl = await readHere(item.url);
-        const r = await server({ type: "inspo-batch-item-bytes", id: batchId, index, url: item.url, dataUrl });
+        const r = await server({ type: "tearsheet-batch-item-bytes", id: batchId, index, url: item.url, dataUrl });
         if (r.result === "saved") saved++;
       } catch (err) {
-        console.warn("Inspo: couldn't send", item.url, err.message);
+        console.warn("Tearsheet: couldn't send", item.url, err.message);
       }
     }
     if (stopped) return;
-    showResult(await server({ type: "inspo-batch-status", id: batchId }));
+    showResult(await server({ type: "tearsheet-batch-status", id: batchId }));
   }
 
   function showError(err) {

@@ -4,29 +4,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Browser and phone tools for the Inspiration Board folder on the Mac mini (an Immich external library):
+**Tearsheet** is the name of the whole product: an Immich companion for a library of photographers' work and the models in it. The app serves Immich; the extensions serve the app. It must stay independent of any one install: the user's Immich library is called **Inspiration Board / Inspo Board**, but that name (and the user's addresses) belongs only in settings and deployment files, never in code or built-in defaults.
 
-1. **Chrome extension** (`extension/`) - right-click an image → POST its URL to the image-downloader server; toolbar popup → collect a whole Tumblr tag, YouPic portfolio or any page (`popup.js`, `collector.js`) and download it through the server's `/batch` endpoints
-2. **Scriptable** (`scriptable/InspoDownload.js`) - iOS share-sheet script that POSTs a shared link to the server
-3. **Webhook trigger** (`webhook-trigger/`) - toolbar button that GETs a configured webhook URL; the user points it at an n8n workflow that starts an Immich external library scan, so newly saved images show up. The URL lives only in the extension's options (chrome.storage), not in code
-4. **Finder Quick Action** (`finder/`) - "Save Image to Inspiration Board": right-click photos or folders in Finder → `save-to-inspiration-board.sh` POSTs each file to `/upload-bytes` with `X-File-Name` (the saved file keeps its name, no "Saved from" line). HEIC, camera raw and files over 50 MB are made JPEG with `sips` first. Settings (API key, optional scan webhook) in `~/.config/inspo-board/config`, asked for on first use. `install.sh` copies the workflow bundle to `~/Library/Services` and puts the script inside it; rerun it after editing the script
+The parts:
 
-The user's iPhone mainly uses an iOS Shortcut ("Inspo Board", not in this repo) that does the same as the Scriptable script.
+1. **Chrome extension** (`extension/`, "Tearsheet") - right-click a photo → **Save to Tearsheet** (POSTs it to the saver); toolbar popup → collect a whole Tumblr tag, YouPic portfolio or any page (`popup.js`, `collector.js`) through the saver's `/batch` endpoints, and **Scan library** (also on the toolbar icon's right-click menu, `scan-library`): a GET to the library scan address in Settings (`webhookUrl` in chrome.storage; the user points it at an n8n workflow that starts Immich's external library scan). The Webhook Trigger extension was folded in at 1.14. The manifest's `key` fixes the extension ID (`njdhpdampnbbeoieeeebmgglpfghiogl`), so moving the folder keeps its settings
+2. **Finder Quick Action** (`finder/`) - "Save to Tearsheet": right-click photos or folders in Finder → `save-to-tearsheet.sh` POSTs each file to `/upload-bytes` with `X-File-Name` (the saved file keeps its name, no "Saved from" line). HEIC, camera raw and files over 50 MB are made JPEG with `sips` first. Settings (`SERVER_URL`, `API_KEY`, optional `SCAN_WEBHOOK_URL`) in `~/.config/tearsheet/config`, asked for on first use; no built-in address. `install.sh` moves the old `~/.config/inspo-board`, removes the old "Save Image to Inspiration Board" Quick Action, copies the workflow bundle to `~/Library/Services` and puts the script inside it; rerun it after editing the script
+3. **iPhone Shortcut** ("Inspo Board", not in this repo) - shares a link to the saver's `/upload`. (The old Scriptable script was removed.)
+4. **Saver** - `image-downloader-m1/` in homelab-config (below)
+5. **Tearsheet app** - `immich-cull/` in homelab-config: the web app (Photos, Explore, Duplicates), Python, talks to Immich only through its API. Its own README and version (`app/VERSION`). The VS Code workspace `tearsheet.code-workspace` opens this repo plus both homelab-config folders
 
-## The server lives elsewhere
+**Machines** (both Mac minis): the **Immich server** (M1, `server_m1@10.0.1.26`, ssh alias `immich-server`) runs Immich and the saver, which must sit there because it writes into the library's folder; 8 GB, tight during Immich's ML jobs. The **Docker server** (`pato@10.0.30.20`, Ubuntu, Portainer at :9000) runs the Tearsheet app (stack `immich-cull`, 31 GB). Folder, container and stack names (`immich-cull`, `image-downloader-m1`) are kept for now; renaming them is a later step.
 
-The server is **not** in this repo. It is `image-downloader-m1/` in the `patofoto/homelab-config` repo (local clone: `~/Documents/GitHub/homelab-config`). Make server changes there.
+## The saver and the app live elsewhere
 
-- Runs on the Mac mini (`server_m1@10.0.1.26`) as the Portainer stack `image-downloader-m1`; public URL `https://inspo-dl.make3.co`.
-- The container bind-mounts `server.js` from the Mac mini's checkout at `/Users/server_m1/homelab-config/image-downloader-m1/server`, not from Portainer's Git copy. To deploy a server change: push to homelab-config, `git pull` in `~/homelab-config` on the Mac mini, then **Pull and redeploy** the stack in Portainer.
+The saver is **not** in this repo. It is `image-downloader-m1/` in the `patofoto/homelab-config` repo (local clone: `~/Documents/GitHub/homelab-config`). Make saver changes there.
+
+- Runs on the Immich server (`server_m1@10.0.1.26`) as the Portainer stack `image-downloader-m1`; public URL `https://inspo-dl.make3.co`.
+- The container bind-mounts `server.js` from the Immich server's checkout at `/Users/server_m1/homelab-config/image-downloader-m1/server`, not from Portainer's Git copy. To deploy a saver change: push to homelab-config, `git pull` in `~/homelab-config` on the Immich server (its deploy key is read-only: it can pull, not push), then **Pull and redeploy** the stack in Portainer.
 - Env vars are set in the Portainer stack UI, and the stack's `docker-compose.yml` must list each one or it never reaches the container: `API_KEY`, `TUMBLR_CONSUMER_KEY`, `TUMBLR_CONSUMER_SECRET`, `TUMBLR_OAUTH_TOKEN`, `TUMBLR_OAUTH_TOKEN_SECRET`.
 - Tumblr post links are resolved through Tumblr's API v2 with OAuth 1.0a (sees login-only blogs; the token doesn't expire), falling back to scraping the post page. Browser session cookies were abandoned because Tumblr invalidates copied cookies within minutes.
+- The Tearsheet app is `immich-cull/` in homelab-config, built by Portainer from git on the Docker server (push, then **Pull and redeploy** the `immich-cull` stack).
 
 ## Flow (Chrome extension)
 
 ```text
 Right-click image → extension/background.js
-  → reads serverUrl + apiKey from chrome.storage.local (set on the options page)
+  → reads serverUrl + apiKey from chrome.storage.local (set on the Settings page)
   → POST {serverUrl}/upload { imageUrl, sourceUrl, apiKey }
   → badge "..." (sending), "✓" (saved), "✗" (error)
 ```
@@ -66,11 +70,11 @@ Toolbar popup on tumblr.com/tagged/<tag> → injects extension/collector.js into
 
 ## Development
 
-**Load an extension:** `chrome://extensions/` → Developer mode → Load unpacked → `extension/` or `webhook-trigger/`. After editing `background.js` or `options.js`, click the reload icon there.
+**Load the extension:** `chrome://extensions/` → Developer mode → Load unpacked → `extension/`. After editing `background.js` or `options.js`, click the reload icon there.
 
-**Versioning:** bump `version` in `extension/manifest.json` with every change to the extension, so the number shown in `chrome://extensions` tells the user which build is loaded (1.2 = tag collector with download and an already-saved note; 1.3 = single saves always save again, the already-saved check and note removed; 1.4 = Download whole post; 1.5 = one right-click item, which saves the whole post on Tumblr; 1.6 = other sites send the image bytes from the browser; 1.7 = ⌥ Option + right-click on sites that block right-click, images labelled as plain data accepted; 1.8 = collect a YouPic portfolio or any page, album box, From this tab, YouPic right-click saves at 1440 px; 1.9 = two quick saves no longer clear each other's badge, srcset addresses with commas (Cloudinary, Substack) read whole, Collect on another page starts a new run once the old one is done collecting; 1.10 = scroll collector jumps to the top first so recycled tiles above aren't missed, broken srcset URLs skipped; 1.11 = collects Tumblr search pages too, for tags Tumblr forwards to search; 1.12 = right-click saves Instagram photos at their largest size; 1.13 = Pinterest saves the original upload, with the pin as the source).
+**Versioning:** bump `version` in `extension/manifest.json` with every change to the extension, so the number shown in `chrome://extensions` tells the user which build is loaded (1.2 = tag collector with download and an already-saved note; 1.3 = single saves always save again, the already-saved check and note removed; 1.4 = Download whole post; 1.5 = one right-click item, which saves the whole post on Tumblr; 1.6 = other sites send the image bytes from the browser; 1.7 = ⌥ Option + right-click on sites that block right-click, images labelled as plain data accepted; 1.8 = collect a YouPic portfolio or any page, album box, From this tab, YouPic right-click saves at 1440 px; 1.9 = two quick saves no longer clear each other's badge, srcset addresses with commas (Cloudinary, Substack) read whole, Collect on another page starts a new run once the old one is done collecting; 1.10 = scroll collector jumps to the top first so recycled tiles above aren't missed, broken srcset URLs skipped; 1.11 = collects Tumblr search pages too, for tags Tumblr forwards to search; 1.12 = right-click saves Instagram photos at their largest size; 1.13 = Pinterest saves the original upload, with the pin as the source; 1.14 = named Tearsheet (Save to Tearsheet), Scan library folded in from the Webhook Trigger extension, the ID fixed in the manifest).
 
-**Test the server:**
+**Test the saver:**
 
 ```bash
 curl https://inspo-dl.make3.co/health
