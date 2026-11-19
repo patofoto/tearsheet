@@ -9,7 +9,7 @@ The parts:
 | **Chrome extension** | `extension/` (this repo) | Right-click a photo → **Save to Tearsheet**; collect a whole Tumblr tag, YouPic portfolio or page; **Scan library** |
 | **Finder action** | `finder/` (this repo) | Right-click photos or folders on the Mac → **Save to Tearsheet** |
 | **iPhone Shortcut** | "Inspo Board" in the share sheet (not in this repo) | Share a link → it's saved |
-| **Saver** | [`homelab-config/image-downloader-m1`](https://github.com/patofoto/homelab-config/tree/main/image-downloader-m1) | Receives the photos and saves them into the library's folder (an Immich external library) |
+| **Saver** | [`homelab-config/tearsheet-saver`](https://github.com/patofoto/homelab-config/tree/main/tearsheet-saver) | Receives the photos and saves them into the library's folder (an Immich external library) |
 | **Tearsheet app** | [`homelab-config/tearsheet`](https://github.com/patofoto/homelab-config/tree/main/tearsheet) | The web app: name, albums, Explore, Duplicates. Talks to Immich only through its API |
 
 Here the saver runs on the **Immich server** (the M1 Mac mini, 10.0.1.26), because it writes into the Inspo Board's folder there, at `https://inspo-dl.make3.co`. The app runs on the **Docker server** (10.0.30.20), because the Immich server's memory is tight while Immich's own jobs run, at `https://tearsheet.make3.co`. Open `tearsheet.code-workspace` in VS Code to get all three folders.

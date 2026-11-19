@@ -9,8 +9,8 @@
 			"path": "../homelab-config/tearsheet"
 		},
 		{
-			"name": "Saver (homelab-config/image-downloader-m1)",
-			"path": "../homelab-config/image-downloader-m1"
+			"name": "Saver (homelab-config/tearsheet-saver)",
+			"path": "../homelab-config/tearsheet-saver"
 		}
 	],
 	"settings": {}

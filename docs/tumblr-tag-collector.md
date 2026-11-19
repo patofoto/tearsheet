@@ -5,7 +5,7 @@ Collect every photo posted under a Tumblr tag (a photographer or model), skip wh
 Built on a `feature/tumblr-tag-collector` branch in both repos, merged into `main` on Oct 4, 2026:
 
 - **tearsheet** (this repo, called Inspo_Download until Nov 2026) — the Chrome extension side, plus this plan
-- **homelab-config** (`image-downloader-m1/`) — the server side
+- **homelab-config** (`tearsheet-saver/`, called image-downloader-m1 until Nov 2026) — the server side
 
 ## What we learned (Oct 4, 2026, test tag `marta bevacqua`)
 
@@ -104,7 +104,7 @@ What a page contains:
 - **Hand-off:** `POST {serverUrl}/batch` with the list and the API key. Then poll `GET /batch/:id` until the check finishes, show the preview, and on **Download** call `POST /batch/:id/download`, showing progress until done.
 - **Manifest:** a content script for `https://www.tumblr.com/*` and a popup. Host permissions already cover it.
 
-## Server (homelab-config/image-downloader-m1)
+## Server (homelab-config/tearsheet-saver)
 
 ### Endpoints (all require the API key)
 
@@ -127,7 +127,7 @@ What a page contains:
 
 ### Config
 
-- Batch state and the ledger live in a host data folder, following the repo convention (`~/image-downloader-m1/` on the Mac mini, mounted at `/data`), so they survive restarts and stay out of the Git checkout.
+- Batch state and the ledger live in a host data folder, following the repo convention (`~/tearsheet-saver/` on the Immich server, mounted at `/data`), so they survive restarts and stay out of the Git checkout.
 - No new dependencies (`sharp` is already used), no access to Immich's network or database.
 - New env var: `REPEAT_MAX_BITS` (default 20).
 
