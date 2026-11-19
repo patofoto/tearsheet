@@ -71,7 +71,7 @@ What a page contains:
 5. **No new tools:** Immich's built-in duplicate review handles what's left. immich-deduper was reviewed and set aside.
 6. **One exact tag per run**, as typed. No merging of spellings like `martabevacqua`.
 7. **No size filter.** Small unique images are kept; smaller copies are left to Immich's duplicate review.
-8. **Immich scan is triggered by you** (webhook-trigger button) after a run, not by the server.
+8. **Immich scan is triggered by you** (the extension's Scan library) after a run, not by the server.
 
 ## Flow
 
@@ -80,7 +80,7 @@ What a page contains:
 2. Check     (server)    per image: downloaded before? (ledger, existing file name) → re-upload of a photo already in this batch? (perceptual hash)
 3. Preview   (extension) "1,422 found · 30 downloaded before · 150 re-uploads · download 1,242?"  [Download] [Cancel]
 4. Download  (server)    one at a time, existing save pipeline; progress
-5. Scan      (you)       press the webhook-trigger button; delete leftovers in Immich's duplicate review
+5. Scan      (you)       press Scan library; delete leftovers in Immich's duplicate review
 ```
 
 ## How duplicates are avoided (no AI, no Immich database)
@@ -146,7 +146,7 @@ What a page contains:
 
 ## Settled questions (Oct 4, 2026)
 
-- **Immich scan:** triggered manually with the webhook-trigger button; the server doesn't call it.
+- **Immich scan:** triggered manually with Scan library; the server doesn't call it.
 - **Small images:** not filtered.
 - **Tag variants:** one exact tag per run, as typed.
 - **Comparison with Immich's database:** dropped. It worked (10 of 10 duplicates found, no false skips below distance 0.035), but cost 0.35–0.8 s of database CPU per image because Immich's vector index is a single cluster. The read-only role `inspo_reader` created for it was removed again the same day.
