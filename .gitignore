@@ -7,3 +7,6 @@ npm-debug.log
 .idea/
 dist/
 build/
+
+# Claude Code: personal permissions (settings.json is shared)
+.claude/settings.local.json
