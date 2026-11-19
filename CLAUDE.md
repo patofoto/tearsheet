@@ -12,9 +12,9 @@ The parts:
 2. **Finder Quick Action** (`finder/`) - "Save to Tearsheet": right-click photos or folders in Finder → `save-to-tearsheet.sh` POSTs each file to `/upload-bytes` with `X-File-Name` (the saved file keeps its name, no "Saved from" line). HEIC, camera raw and files over 50 MB are made JPEG with `sips` first. Settings (`SERVER_URL`, `API_KEY`, optional `SCAN_WEBHOOK_URL`) in `~/.config/tearsheet/config`, asked for on first use; no built-in address. `install.sh` moves the old `~/.config/inspo-board`, removes the old "Save Image to Inspiration Board" Quick Action, copies the workflow bundle to `~/Library/Services` and puts the script inside it; rerun it after editing the script
 3. **iPhone Shortcut** ("Inspo Board", not in this repo) - shares a link to the saver's `/upload`. (The old Scriptable script was removed.)
 4. **Saver** - `image-downloader-m1/` in homelab-config (below)
-5. **Tearsheet app** - `immich-cull/` in homelab-config: the web app (Photos, Explore, Duplicates), Python, talks to Immich only through its API. Its own README and version (`app/VERSION`). The VS Code workspace `tearsheet.code-workspace` opens this repo plus both homelab-config folders
+5. **Tearsheet app** - `tearsheet/` in homelab-config (`immich-cull/` until Nov 19, 2026): the web app (Photos, Explore, Duplicates), Python, talks to Immich only through its API. Its own README and version (`app/VERSION`). The VS Code workspace `tearsheet.code-workspace` opens this repo plus both homelab-config folders
 
-**Machines** (both Mac minis): the **Immich server** (M1, `server_m1@10.0.1.26`, ssh alias `immich-server`) runs Immich and the saver, which must sit there because it writes into the library's folder; 8 GB, tight during Immich's ML jobs. The **Docker server** (`pato@10.0.30.20`, Ubuntu, Portainer at :9000) runs the Tearsheet app (stack `immich-cull`, 31 GB). Folder, container and stack names (`immich-cull`, `image-downloader-m1`) are kept for now; renaming them is a later step.
+**Machines** (both Mac minis): the **Immich server** (M1, `server_m1@10.0.1.26`, ssh alias `immich-server`) runs Immich and the saver, which must sit there because it writes into the library's folder; 8 GB, tight during Immich's ML jobs. The **Docker server** (`pato@10.0.30.20`, Ubuntu, Portainer at :9000) runs the Tearsheet app (stack `tearsheet`, 31 GB). The saver keeps its old names (`image-downloader-m1`) until it is renamed too.
 
 ## The saver and the app live elsewhere
 
@@ -24,7 +24,7 @@ The saver is **not** in this repo. It is `image-downloader-m1/` in the `patofoto
 - The container bind-mounts `server.js` from the Immich server's checkout at `/Users/server_m1/homelab-config/image-downloader-m1/server`, not from Portainer's Git copy. To deploy a saver change: push to homelab-config, `git pull` in `~/homelab-config` on the Immich server (its deploy key is read-only: it can pull, not push), then **Pull and redeploy** the stack in Portainer.
 - Env vars are set in the Portainer stack UI, and the stack's `docker-compose.yml` must list each one or it never reaches the container: `API_KEY`, `TUMBLR_CONSUMER_KEY`, `TUMBLR_CONSUMER_SECRET`, `TUMBLR_OAUTH_TOKEN`, `TUMBLR_OAUTH_TOKEN_SECRET`.
 - Tumblr post links are resolved through Tumblr's API v2 with OAuth 1.0a (sees login-only blogs; the token doesn't expire), falling back to scraping the post page. Browser session cookies were abandoned because Tumblr invalidates copied cookies within minutes.
-- The Tearsheet app is `immich-cull/` in homelab-config, built by Portainer from git on the Docker server (push, then **Pull and redeploy** the `immich-cull` stack).
+- The Tearsheet app is `tearsheet/` in homelab-config, built by Portainer from git on the Docker server (push, then **Pull and redeploy** the `tearsheet` stack; container `tearsheet`, data `/home/pato/tearsheet`).
 
 ## Flow (Chrome extension)
 
