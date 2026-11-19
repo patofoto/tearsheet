@@ -4,7 +4,7 @@ Collect every photo posted under a Tumblr tag (a photographer or model), skip wh
 
 Built on a `feature/tumblr-tag-collector` branch in both repos, merged into `main` on Oct 4, 2026:
 
-- **Inspo_Download** — the Chrome extension side, plus this plan
+- **tearsheet** (this repo, called Inspo_Download until Nov 2026) — the Chrome extension side, plus this plan
 - **homelab-config** (`image-downloader-m1/`) — the server side
 
 ## What we learned (Oct 4, 2026, test tag `marta bevacqua`)
@@ -93,7 +93,7 @@ What a page contains:
 | The same photo re-uploaded by another blog (same run) | perceptual hash of the thumbnail; keep the highest resolution | server |
 | Already in Immich from other sources | not caught (Immich's duplicate review) | |
 
-## Extension (Inspo_Download/extension)
+## Extension (tearsheet/extension)
 
 - **Trigger:** a toolbar popup with a **Collect this tag** button, enabled on `tumblr.com/tagged/*`. Optionally a text box that opens the tag page for a typed name.
 - **Collector (content script on `www.tumblr.com`):**

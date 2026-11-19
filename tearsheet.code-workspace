@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"name": "tearsheet (extension, Finder action, docs)",
+			"path": "."
+		},
+		{
+			"name": "Tearsheet app (homelab-config/immich-cull)",
+			"path": "../homelab-config/immich-cull"
+		},
+		{
+			"name": "Saver (homelab-config/image-downloader-m1)",
+			"path": "../homelab-config/image-downloader-m1"
+		}
+	],
+	"settings": {}
+}
